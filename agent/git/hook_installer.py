@@ -60,7 +60,8 @@ def install_hook(repo_root: Optional[str] = None, force: bool = False) -> bool:
     hook_content = _HOOK_TEMPLATE.format(
         python_bin=python_bin,
     )
-    hook_path.write_text(hook_content, encoding="utf-8")
+    # Write with Unix line endings — CRLF breaks sh execution on Windows/Git Bash
+    hook_path.write_text(hook_content, encoding="utf-8", newline="\n")
 
     # Make the hook executable
     current = hook_path.stat().st_mode
