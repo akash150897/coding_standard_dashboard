@@ -23,6 +23,7 @@ def run_linting(
     files: List[str],
     language: str,
     project_root: str,
+    framework: Optional[str] = None,
     python_linter: str = "auto",   # "flake8" | "ruff" | "auto"
     js_linter: str = "eslint",
 ) -> int:
@@ -32,6 +33,7 @@ def run_linting(
         files:         List of file paths to lint.
         language:      Detected project language.
         project_root:  Root directory of the project.
+        framework:     Detected framework (used to generate ESLint config).
         python_linter: Which Python linter to use ("auto" tries ruff then flake8).
         js_linter:     Which JS linter to use (currently only "eslint").
 
@@ -47,7 +49,7 @@ def run_linting(
         exit_code |= _run_python_linter(py_files, python_linter)
 
     if js_files:
-        exit_code |= _run_eslint(js_files, project_root, js_linter)
+        exit_code |= _run_eslint(js_files, project_root, js_linter, framework)
 
     return exit_code
 
@@ -98,14 +100,22 @@ def _pick_python_linter(preference: str) -> Optional[str]:
 
 # ── JavaScript / TypeScript ───────────────────────────────────────────────────
 
-def _run_eslint(files: List[str], project_root: str, linter: str) -> int:
+def _run_eslint(
+    files: List[str],
+    project_root: str,
+    linter: str,
+    framework: Optional[str] = None,
+) -> int:
     """Run ESLint on JS/TS files.
 
-    Groups files by their nearest ESLint config root and runs ESLint
-    once per config root so monorepos (client/ + server/) both get linted.
+    If ESLint is not installed but npm is available, installs it automatically
+    and creates a framework-appropriate .eslintrc.json config.
+    Groups files by their nearest ESLint config root for monorepo support.
     """
+    # Auto-setup ESLint if missing (requires npm)
+    _ensure_eslint(project_root, framework)
+
     # Resolve all paths to absolute so ESLint receives unambiguous paths
-    # regardless of what cwd it runs from (important for monorepos / staged files)
     abs_files = [
         str(Path(f) if Path(f).is_absolute() else Path(project_root) / f)
         for f in files
@@ -117,7 +127,6 @@ def _run_eslint(files: List[str], project_root: str, linter: str) -> int:
         config_root = _find_eslint_config_root(f, project_root)
         if config_root:
             groups.setdefault(config_root, []).append(f)
-        # Files with no config are silently skipped
 
     if not groups:
         print(
@@ -143,6 +152,83 @@ def _run_eslint(files: List[str], project_root: str, linter: str) -> int:
         )
 
     return exit_code
+
+
+def _ensure_eslint(project_root: str, framework: Optional[str]) -> None:
+    """Auto-install ESLint and create a default config if missing.
+
+    Only runs when:
+      - No ESLint binary is found in the project
+      - npm is available on PATH
+      - A package.json exists in the project root
+    """
+    if _find_eslint(project_root) is not None:
+        return  # Already installed
+
+    if not shutil.which("npm"):
+        return  # npm not available — can't auto-install
+
+    pkg_json = Path(project_root) / "package.json"
+    if not pkg_json.exists():
+        return  # Not an npm project
+
+    print(f"{_CYAN}[LINT] ESLint not found — installing automatically...{_RESET}")
+    result = subprocess.run(
+        ["npm", "install", "--save-dev", "eslint"],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"{_YELLOW}[LINT] ESLint auto-install failed: {result.stderr.strip()}{_RESET}")
+        return
+
+    print(f"{_CYAN}[LINT] ESLint installed successfully.{_RESET}")
+
+    # Create default config if none exists
+    if not _has_eslint_config(project_root):
+        _create_eslint_config(project_root, framework)
+
+
+def _create_eslint_config(project_root: str, framework: Optional[str]) -> None:
+    """Write a framework-appropriate .eslintrc.json into project_root."""
+    import json
+
+    fw = (framework or "").lower()
+
+    # Base config — always included
+    config: dict = {
+        "extends": ["eslint:recommended"],
+        "parserOptions": {
+            "ecmaVersion": "latest",
+            "sourceType": "module",
+        },
+        "rules": {},
+    }
+
+    if fw in ("react", "react_native"):
+        config["env"] = {"browser": True, "es2021": True}
+        config["parserOptions"]["ecmaFeatures"] = {"jsx": True}
+
+    elif fw in ("nextjs", "next"):
+        config["env"] = {"browser": True, "node": True, "es2021": True}
+
+    elif fw in ("express", "nodejs", "node"):
+        config["env"] = {"node": True, "es2021": True}
+
+    else:
+        # Generic JS project
+        config["env"] = {"browser": True, "node": True, "es2021": True}
+
+    config_path = Path(project_root) / ".eslintrc.json"
+    config_path.write_text(
+        json.dumps(config, indent=2),
+        encoding="utf-8",
+    )
+    print(
+        f"{_CYAN}[LINT] Created default .eslintrc.json for "
+        f"framework='{framework or 'generic'}' in {project_root}{_RESET}"
+    )
 
 
 def _find_eslint_config_root(file_path: str, stop_at: str) -> Optional[str]:

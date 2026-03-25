@@ -116,6 +116,7 @@ def run_review(
             files=review_files,
             language=ctx.language,
             project_root=root,
+            framework=ctx.framework,
             python_linter=config.get("python_linter", "auto"),
             js_linter=config.get("js_linter", "eslint"),
         )
