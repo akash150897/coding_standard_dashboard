@@ -1,0 +1,102 @@
+{
+  "version": "1.0.0",
+  "language": "javascript",
+  "framework": "express",
+  "description": "Node.js + Express rules from nodejs_express_rules.md",
+  "rules": [
+    {
+      "id": "NODE001",
+      "name": "no_console_in_production",
+      "description": "console.log is not allowed in Node.js production code — use Winston/Pino",
+      "severity": "error",
+      "category": "logging",
+      "type": "ast",
+      "ast_check": "no_console_log",
+      "fallback_pattern": "console\\.(log|debug)\\s*\\(",
+      "message": "console.log/debug detected in Node.js backend. Use a structured logger (Winston, Pino).",
+      "fix_suggestion": "Replace with logger.info() / logger.debug() from your configured Winston/Pino instance.",
+      "file_extensions": [".js", ".ts", ".mjs", ".cjs"],
+      "exclude_file_patterns": ["*.test.*", "*.spec.*", "*.config.*"],
+      "enabled": true
+    },
+    {
+      "id": "NODE002",
+      "name": "route_paths_lowercase",
+      "description": "Express route paths should be lowercase with hyphens",
+      "severity": "warning",
+      "category": "api_design",
+      "type": "regex",
+      "pattern": "router\\.(get|post|put|patch|delete)\\s*\\(['\"][^'\"]*[A-Z][^'\"]*['\"]",
+      "message": "Route path contains uppercase characters. Use lowercase-with-hyphens convention.",
+      "fix_suggestion": "Rename to lowercase: router.get('/user-profile/:id', ...) instead of '/UserProfile/:id'.",
+      "file_extensions": [".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NODE003",
+      "name": "validate_all_api_inputs",
+      "description": "Every route handler should validate request body, params, and query",
+      "severity": "warning",
+      "category": "security",
+      "type": "regex",
+      "pattern": "router\\.(post|put|patch)\\s*\\([^,]+,\\s*(?!.*(?:validate|schema|Joi|zod|yup))",
+      "message": "POST/PUT/PATCH route handler may be missing input validation. Use Joi, Zod, or express-validator.",
+      "fix_suggestion": "Add a validation middleware: router.post('/path', validationMiddleware(schema), controller).",
+      "file_extensions": [".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NODE004",
+      "name": "no_secrets_in_source_node",
+      "description": "Secrets must never be hardcoded in Node.js source",
+      "severity": "error",
+      "category": "security",
+      "type": "regex",
+      "pattern": "(?i)(jwt[_-]?secret|db[_-]?password|api[_-]?key|secret[_-]?key)\\s*[:=]\\s*['\"`][A-Za-z0-9+/=_\\-]{8,}['\"`]",
+      "message": "Hardcoded secret in Node.js source. Load from env.json or environment variables.",
+      "fix_suggestion": "Use process.env.JWT_SECRET and store the value in env.json or a secret manager.",
+      "file_extensions": [".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NODE005",
+      "name": "use_async_await",
+      "description": "Prefer async/await over callbacks and .then() chains",
+      "severity": "info",
+      "category": "style",
+      "type": "regex",
+      "pattern": "\\.then\\s*\\(\\s*(function|\\(|[a-zA-Z_$])",
+      "message": "Promise .then() chain found. Prefer async/await for cleaner error handling.",
+      "fix_suggestion": "Refactor to async/await: try { const result = await somePromise(); } catch (e) { ... }",
+      "file_extensions": [".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NODE006",
+      "name": "centralized_error_handling",
+      "description": "Avoid sending raw error objects or stack traces to the client",
+      "severity": "error",
+      "category": "security",
+      "type": "regex",
+      "pattern": "res\\.(json|send)\\s*\\(\\s*\\{[^}]*(?:stack|error\\.message|err\\.message)[^}]*\\}",
+      "message": "Raw error stack/message sent to client — may leak internal details.",
+      "fix_suggestion": "Return a sanitised error payload: { success: false, message: 'Something went wrong', code: 500 }.",
+      "file_extensions": [".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NODE007",
+      "name": "sanitize_string_inputs",
+      "description": "String inputs should be sanitised to prevent XSS and injection",
+      "severity": "warning",
+      "category": "security",
+      "type": "regex",
+      "pattern": "req\\.(body|query|params)\\.[a-zA-Z_$][a-zA-Z0-9_$]*(?!.*(?:trim|sanitize|escape|validate|strip))",
+      "message": "req.body/query/params used without visible sanitisation. Ensure inputs are validated and sanitised.",
+      "fix_suggestion": "Sanitise with express-validator or xss-clean before using request data.",
+      "file_extensions": [".js", ".ts"],
+      "enabled": false,
+      "comment": "Disabled by default — high false-positive rate. Enable selectively per project."
+    }
+  ]
+}

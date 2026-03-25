@@ -1,0 +1,103 @@
+{
+  "version": "1.0.0",
+  "language": "javascript",
+  "framework": "react_native",
+  "description": "React Native rules from react_native_rules.md",
+  "rules": [
+    {
+      "id": "RN001",
+      "name": "no_inline_styles",
+      "description": "Inline style objects are expensive to re-create — use StyleSheet.create",
+      "severity": "warning",
+      "category": "performance",
+      "type": "ast",
+      "ast_check": "no_inline_styles",
+      "fallback_pattern": "style=\\{\\{",
+      "message": "Inline style object in React Native component. Use StyleSheet.create() for better performance.",
+      "fix_suggestion": "const styles = StyleSheet.create({ container: { ... } }); then style={styles.container}.",
+      "file_extensions": [".jsx", ".tsx", ".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "RN002",
+      "name": "no_asyncstorage_for_secrets",
+      "description": "AsyncStorage is unencrypted — never store tokens or secrets in it",
+      "severity": "error",
+      "category": "security",
+      "type": "ast",
+      "ast_check": "no_async_storage_secrets",
+      "fallback_pattern": "AsyncStorage\\.(setItem|getItem)\\s*\\(\\s*['\"](?:token|jwt|auth|password|secret)",
+      "message": "Sensitive data stored in AsyncStorage (unencrypted). Use react-native-keychain or expo-secure-store.",
+      "fix_suggestion": "import Keychain from 'react-native-keychain'; await Keychain.setGenericPassword(user, token);",
+      "file_extensions": [".js", ".jsx", ".ts", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "RN003",
+      "name": "use_flatlist_for_lists",
+      "description": "Use FlatList/SectionList for lists instead of .map() to enable virtualisation",
+      "severity": "warning",
+      "category": "performance",
+      "type": "ast",
+      "ast_check": "use_flatlist",
+      "fallback_pattern": "\\{\\s*\\w+\\.map\\s*\\(",
+      "message": "Array.map() used to render list items. Use FlatList or SectionList for large/dynamic lists.",
+      "fix_suggestion": "<FlatList data={items} renderItem={({ item }) => <ItemComponent item={item} />} keyExtractor={(item) => item.id} />",
+      "file_extensions": [".jsx", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "RN004",
+      "name": "use_safe_area_view",
+      "description": "Screens should use SafeAreaView to handle iOS notch/home indicator",
+      "severity": "info",
+      "category": "ui",
+      "type": "regex",
+      "pattern": "^\\s*return\\s*\\(\\s*\\n?\\s*<View",
+      "message": "Screen returns a plain <View>. Use SafeAreaView to handle iOS safe areas.",
+      "fix_suggestion": "import { SafeAreaView } from 'react-native-safe-area-context'; wrap the root view.",
+      "file_extensions": [".jsx", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "RN005",
+      "name": "platform_specific_styles",
+      "description": "Use Platform.OS for platform-specific style values",
+      "severity": "info",
+      "category": "correctness",
+      "type": "regex",
+      "pattern": "paddingTop\\s*:\\s*(?:24|44|20|48)(?!.*Platform)",
+      "message": "Hard-coded platform-specific padding found. Use Platform.OS to handle iOS/Android differences.",
+      "fix_suggestion": "paddingTop: Platform.OS === 'ios' ? 44 : 24",
+      "file_extensions": [".jsx", ".tsx", ".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "RN006",
+      "name": "no_class_components_rn",
+      "description": "Class components are discouraged — use functional components with hooks",
+      "severity": "warning",
+      "category": "architecture",
+      "type": "ast",
+      "ast_check": "no_class_components",
+      "fallback_pattern": "class\\s+\\w+\\s+extends\\s+(React\\.Component|Component|PureComponent)",
+      "message": "Class component detected in React Native. Use functional components with hooks.",
+      "fix_suggestion": "Convert to a functional component with useState/useEffect/useRef hooks.",
+      "file_extensions": [".jsx", ".tsx", ".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "RN007",
+      "name": "lazy_load_heavy_modules",
+      "description": "Heavy native modules should be conditionally imported",
+      "severity": "info",
+      "category": "performance",
+      "type": "regex",
+      "pattern": "^import\\s+[^'\"]+from\\s+['\"]react-native-(?:video|camera|maps|webview|pdf)['\"]",
+      "message": "Heavy native module imported at top level. Consider conditional/lazy loading where possible.",
+      "fix_suggestion": "Load conditionally: if (featureEnabled) { const VideoPlayer = require('react-native-video').default; }",
+      "file_extensions": [".js", ".jsx", ".ts", ".tsx"],
+      "enabled": true
+    }
+  ]
+}

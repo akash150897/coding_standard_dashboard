@@ -14,7 +14,7 @@ from typing import List, Optional
 def _print_usage() -> None:
     print(
         """
-Code Review Agent — intelligent git pre-push gate
+Code Review Agent — intelligent git pre-commit gate
 
 Usage:
   python main.py review   [--staged] [--lang LANG] [--framework FW]

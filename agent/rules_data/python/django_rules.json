@@ -1,0 +1,74 @@
+{
+  "version": "1.0.0",
+  "language": "python",
+  "framework": "django",
+  "description": "Django-specific code review rules",
+  "rules": [
+    {
+      "id": "DJ001",
+      "name": "debug_true_in_production",
+      "description": "DEBUG=True must never be used in production settings",
+      "severity": "error",
+      "category": "security",
+      "type": "regex",
+      "pattern": "^\\s*DEBUG\\s*=\\s*True",
+      "message": "DEBUG=True detected. Ensure this is not in production settings.",
+      "fix_suggestion": "Use DEBUG = os.getenv('DEBUG', 'False') == 'True' and ensure production has DEBUG=False.",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "DJ002",
+      "name": "secret_key_not_hardcoded",
+      "description": "Django SECRET_KEY must not be hardcoded",
+      "severity": "error",
+      "category": "security",
+      "type": "regex",
+      "pattern": "SECRET_KEY\\s*=\\s*['\"][^'\"]{20,}['\"]",
+      "message": "Hardcoded Django SECRET_KEY detected. Load it from environment variables.",
+      "fix_suggestion": "SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') — store the value in .env.",
+      "file_extensions": [".py"],
+      "exclude_file_patterns": ["settings.example.py", "*.md"],
+      "enabled": true
+    },
+    {
+      "id": "DJ003",
+      "name": "allowed_hosts_not_wildcard",
+      "description": "ALLOWED_HOSTS must not contain '*' in production",
+      "severity": "warning",
+      "category": "security",
+      "type": "regex",
+      "pattern": "ALLOWED_HOSTS\\s*=\\s*\\[[^\\]]*['\"]\\*['\"]",
+      "message": "ALLOWED_HOSTS=['*'] is insecure. Specify explicit host names in production.",
+      "fix_suggestion": "Set ALLOWED_HOSTS to a list of your actual domain names.",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "DJ004",
+      "name": "raw_sql_queries",
+      "description": "Avoid raw SQL — use the ORM to prevent SQL injection",
+      "severity": "warning",
+      "category": "security",
+      "type": "regex",
+      "pattern": "\\.raw\\s*\\(|cursor\\.execute\\s*\\([^,)]*%\\s*\\(",
+      "message": "Raw SQL query detected. Prefer the Django ORM or use parameterised queries.",
+      "fix_suggestion": "Use Model.objects.filter() or cursor.execute(sql, [params]) with parameters.",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "DJ005",
+      "name": "avoid_select_related_all",
+      "description": "Use select_related/prefetch_related for related objects to avoid N+1 queries",
+      "severity": "info",
+      "category": "performance",
+      "type": "regex",
+      "pattern": "\\.objects\\.all\\(\\)\\s*$",
+      "message": "Fetching all objects without filtering. Consider adding select_related/prefetch_related or filters.",
+      "fix_suggestion": "Use .objects.select_related('field').filter(...) where appropriate.",
+      "file_extensions": [".py"],
+      "enabled": true
+    }
+  ]
+}

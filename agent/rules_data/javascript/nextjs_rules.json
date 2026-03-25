@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "language": "javascript",
+  "framework": "nextjs",
+  "description": "Next.js App Router rules from nextjs_rules.md",
+  "rules": [
+    {
+      "id": "NEXT001",
+      "name": "use_next_link",
+      "description": "Use next/link instead of raw <a> for internal navigation",
+      "severity": "error",
+      "category": "correctness",
+      "type": "ast",
+      "ast_check": "no_raw_anchor",
+      "fallback_pattern": "<a\\s[^>]*href=['\"](?!\\.\\.|https?://|#|mailto:|tel:)",
+      "message": "Raw <a> tag used for internal link. Use <Link href=\"...\"> from 'next/link'.",
+      "fix_suggestion": "import Link from 'next/link'; then use <Link href=\"/path\">text</Link>.",
+      "file_extensions": [".jsx", ".tsx", ".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NEXT002",
+      "name": "use_next_image",
+      "description": "Use next/image instead of <img> for automatic optimisation",
+      "severity": "warning",
+      "category": "performance",
+      "type": "regex",
+      "pattern": "<img\\s",
+      "message": "Raw <img> tag found. Use <Image> from 'next/image' for automatic optimisation and lazy loading.",
+      "fix_suggestion": "import Image from 'next/image'; then use <Image src=\"...\" alt=\"...\" width={x} height={y} />.",
+      "file_extensions": [".jsx", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "NEXT003",
+      "name": "no_secrets_in_source",
+      "description": "Secrets must never be in Next.js source — only in .env.local",
+      "severity": "error",
+      "category": "security",
+      "type": "regex",
+      "pattern": "(?i)(api[_-]?key|secret[_-]?key|NEXTAUTH_SECRET|JWT_SECRET)\\s*[:=]\\s*['\"`][A-Za-z0-9+/=_\\-]{8,}['\"`]",
+      "message": "Hardcoded Next.js secret detected. Store in .env.local and access via process.env.",
+      "fix_suggestion": "Move to .env.local: NEXTAUTH_SECRET=... and reference as process.env.NEXTAUTH_SECRET.",
+      "file_extensions": [".js", ".jsx", ".ts", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "NEXT004",
+      "name": "prefer_server_components",
+      "description": "Only add 'use client' when state, effects, or browser APIs are required",
+      "severity": "info",
+      "category": "performance",
+      "type": "regex",
+      "pattern": "^['\"]use client['\"]",
+      "message": "'use client' directive found. Verify this component needs client-side rendering — prefer Server Components.",
+      "fix_suggestion": "Remove 'use client' if this component has no state, effects, or event handlers.",
+      "file_extensions": [".jsx", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "NEXT005",
+      "name": "lazy_load_non_critical",
+      "description": "Lazy-load heavy or rarely-used components with next/dynamic",
+      "severity": "info",
+      "category": "performance",
+      "type": "regex",
+      "pattern": "import\\s+\\w+\\s+from\\s+['\"][^'\"]*(?:Chart|Map|Editor|Player|Pdf|Video|Dashboard|Widget)[^'\"]*['\"]",
+      "message": "Heavy component imported statically. Use dynamic(() => import('...'), { ssr: false }) for client-side-only modules.",
+      "fix_suggestion": "import dynamic from 'next/dynamic'; const Map = dynamic(() => import('./Map'), { ssr: false });",
+      "file_extensions": [".jsx", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "NEXT006",
+      "name": "no_legacy_pages_api_in_app_router",
+      "description": "Do not introduce legacy pages/api routes in an App Router project",
+      "severity": "warning",
+      "category": "architecture",
+      "type": "filename",
+      "pattern": "pages/api/",
+      "expect_match": false,
+      "message": "Legacy pages/api route detected in an App Router project. Use Route Handlers (app/api/route.ts).",
+      "fix_suggestion": "Create app/api/your-endpoint/route.ts with GET/POST handler exports instead.",
+      "file_extensions": [".js", ".ts"],
+      "enabled": true
+    },
+    {
+      "id": "NEXT007",
+      "name": "use_next_navigation_hooks",
+      "description": "Use next/navigation hooks for imperative navigation, not useRouter from next/router",
+      "severity": "warning",
+      "category": "correctness",
+      "type": "regex",
+      "pattern": "from\\s+['\"]next/router['\"]",
+      "message": "Importing from 'next/router' in App Router project. Use 'next/navigation' instead.",
+      "fix_suggestion": "import { useRouter, usePathname } from 'next/navigation';",
+      "file_extensions": [".jsx", ".tsx", ".js", ".ts"],
+      "enabled": true
+    }
+  ]
+}

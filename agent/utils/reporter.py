@@ -102,7 +102,7 @@ class Reporter:
         lines = [
             "",
             self._c("=" * 62, _BOLD),
-            self._c("  Code Review Agent  —  Pre-Push Gate", _BOLD),
+            self._c("  Code Review Agent  —  Pre-Commit Gate", _BOLD),
         ]
         if language:
             lines.append(f"  Language  : {self._c(language, _CYAN)}")

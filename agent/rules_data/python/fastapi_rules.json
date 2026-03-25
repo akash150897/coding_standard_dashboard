@@ -1,0 +1,101 @@
+{
+  "version": "1.0.0",
+  "language": "python",
+  "framework": "fastapi",
+  "description": "FastAPI-specific rules from fastapi_rules.md",
+  "rules": [
+    {
+      "id": "FAPI001",
+      "name": "async_route_handlers",
+      "description": "FastAPI route handlers should be async for I/O-bound operations",
+      "severity": "warning",
+      "category": "performance",
+      "type": "regex",
+      "pattern": "@(router|app)\\.(get|post|put|patch|delete|head|options)\\([^)]*\\)\\s*\\ndef\\s+",
+      "message": "Synchronous route handler detected. Use 'async def' for I/O-bound FastAPI routes.",
+      "fix_suggestion": "Change 'def' to 'async def' for this route handler.",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "FAPI002",
+      "name": "route_path_lowercase",
+      "description": "FastAPI route paths should be lowercase with hyphens",
+      "severity": "warning",
+      "category": "api_design",
+      "type": "regex",
+      "pattern": "@(router|app)\\.(get|post|put|patch|delete)\\(['\"][^'\"]*[A-Z][^'\"]*['\"]",
+      "message": "Route path contains uppercase characters. Use lowercase with hyphens (e.g., /get-user-info).",
+      "fix_suggestion": "Rename the route path to lowercase-with-hyphens convention.",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "FAPI003",
+      "name": "route_docstring_required",
+      "description": "FastAPI routes should have a docstring for auto-generated OpenAPI docs",
+      "severity": "info",
+      "category": "documentation",
+      "type": "regex",
+      "pattern": "async def [a-z_]+\\([^)]*\\).*:\\s*$",
+      "message": "Route handler missing docstring. Add a docstring for OpenAPI documentation.",
+      "fix_suggestion": "Add a docstring: \"\"\"Brief description of what this endpoint does.\"\"\"",
+      "file_extensions": [".py"],
+      "enabled": false,
+      "comment": "Disabled by default — too many false positives on helper async functions."
+    },
+    {
+      "id": "FAPI004",
+      "name": "use_pydantic_models",
+      "description": "Request/response bodies should use Pydantic models, not plain dicts",
+      "severity": "warning",
+      "category": "api_design",
+      "type": "regex",
+      "pattern": "@(router|app)\\.(post|put|patch)\\([^)]*\\)[\\s\\S]{0,200}(: dict|: Dict)",
+      "message": "Route parameter typed as dict. Use a Pydantic BaseModel for request bodies.",
+      "fix_suggestion": "Create a Pydantic model: class CreateUserRequest(BaseModel): ...",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "FAPI005",
+      "name": "explicit_cors_configuration",
+      "description": "CORS should be configured explicitly — avoid allow_origins=['*'] in production",
+      "severity": "warning",
+      "category": "security",
+      "type": "regex",
+      "pattern": "allow_origins\\s*=\\s*\\[\\s*['\"]\\*['\"]\\s*\\]",
+      "message": "CORSMiddleware configured with allow_origins=['*']. Set explicit trusted origins in production.",
+      "fix_suggestion": "Replace '*' with a list of allowed origins: ['https://yourdomain.com'].",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "FAPI006",
+      "name": "http_exception_usage",
+      "description": "Use HTTPException for error responses — not plain raise or sys.exit",
+      "severity": "warning",
+      "category": "error_handling",
+      "type": "regex",
+      "pattern": "raise\\s+(?!HTTPException)[A-Z][a-zA-Z]+Exception",
+      "message": "Non-HTTP exception raised inside a route. Use HTTPException with a proper status code.",
+      "fix_suggestion": "Raise HTTPException(status_code=400, detail='message') for API error responses.",
+      "file_extensions": [".py"],
+      "enabled": true
+    },
+    {
+      "id": "FAPI007",
+      "name": "feature_based_routers",
+      "description": "Use APIRouter per feature module — avoid all routes in main.py",
+      "severity": "info",
+      "category": "architecture",
+      "type": "regex",
+      "pattern": "@app\\.(get|post|put|patch|delete)\\(",
+      "message": "Route defined directly on 'app' in main.py. Consider using APIRouter for feature-based organisation.",
+      "fix_suggestion": "Move this route to a feature module with its own APIRouter and include_router().",
+      "file_extensions": [".py"],
+      "exclude_file_patterns": ["test_*.py"],
+      "enabled": true
+    }
+  ]
+}

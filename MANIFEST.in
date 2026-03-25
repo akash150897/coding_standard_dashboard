@@ -1,1 +1,1 @@
-recursive-include rules *.json
+recursive-include agent/rules_data *.json

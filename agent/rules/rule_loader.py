@@ -9,8 +9,8 @@ from agent.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Path to the bundled rules directory (sibling of the agent package)
-_BUNDLED_RULES_DIR = Path(__file__).resolve().parent.parent.parent / "rules"
+# Path to the bundled rules directory (inside the agent package so pip includes it)
+_BUNDLED_RULES_DIR = Path(__file__).resolve().parent.parent / "rules_data"
 
 
 class RuleLoader:

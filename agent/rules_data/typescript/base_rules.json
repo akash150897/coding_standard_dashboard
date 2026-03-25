@@ -1,0 +1,90 @@
+{
+  "version": "1.0.0",
+  "language": "typescript",
+  "description": "TypeScript-specific rules from common_rules.md TypeScript Standards section",
+  "rules": [
+    {
+      "id": "TS001",
+      "name": "no_any_type",
+      "description": "Avoid the 'any' type — it defeats the purpose of TypeScript",
+      "severity": "warning",
+      "category": "type_safety",
+      "type": "ast",
+      "ast_check": "no_any_type",
+      "fallback_pattern": ":\\s*any\\b",
+      "message": "Explicit 'any' type used. Replace with a specific type or 'unknown' with a type guard.",
+      "fix_suggestion": "Use a specific interface/type, or 'unknown' + type narrowing: if (typeof x === 'string') { ... }",
+      "file_extensions": [".ts", ".tsx"],
+      "exclude_file_patterns": ["*.d.ts", "*.test.*", "*.spec.*"],
+      "enabled": true
+    },
+    {
+      "id": "TS002",
+      "name": "type_function_params_and_returns",
+      "description": "Function parameters and return types must be explicitly typed",
+      "severity": "warning",
+      "category": "type_safety",
+      "type": "regex",
+      "pattern": "function\\s+\\w+\\s*\\([^:)]+\\)(?!\\s*:)",
+      "message": "Function is missing a return type annotation.",
+      "fix_suggestion": "Add return type: function myFn(param: string): void { ... }",
+      "file_extensions": [".ts", ".tsx"],
+      "exclude_file_patterns": ["*.test.*", "*.spec.*"],
+      "enabled": true
+    },
+    {
+      "id": "TS003",
+      "name": "prefer_undefined_over_null",
+      "description": "Prefer undefined over null per team coding standard",
+      "severity": "info",
+      "category": "style",
+      "type": "regex",
+      "pattern": "(?<!=)=\\s*null\\b(?!\\s*[;,)])|(?::\\s*null\\b)",
+      "message": "null value used. Prefer 'undefined' over 'null' per TypeScript standards.",
+      "fix_suggestion": "Replace null with undefined unless interoperating with APIs that require null.",
+      "file_extensions": [".ts", ".tsx"],
+      "enabled": false,
+      "comment": "Disabled — too many false positives with API responses. Enable if your team enforces this strictly."
+    },
+    {
+      "id": "TS004",
+      "name": "use_id_not_ID",
+      "description": "Use 'Id' suffix (not 'ID') for identifiers per coding standards",
+      "severity": "info",
+      "category": "style",
+      "type": "regex",
+      "pattern": "\\b\\w+ID\\b(?!\\s*[:=].*['\"])",
+      "message": "Identifier uses 'ID' suffix. Use 'Id' instead (e.g., userId not userID).",
+      "fix_suggestion": "Rename: userID → userId, productID → productId.",
+      "file_extensions": [".ts", ".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "TS005",
+      "name": "interface_or_type_for_props",
+      "description": "React component props should be typed with an interface or type alias",
+      "severity": "warning",
+      "category": "type_safety",
+      "type": "regex",
+      "pattern": "const\\s+[A-Z]\\w+\\s*=\\s*(?:React\\.memo\\s*\\()?\\s*\\(\\s*\\{[^}]*\\}\\s*\\)\\s*(?:=>|:\\s*React\\.FC(?!<))",
+      "message": "Component props are not typed via an interface or type alias.",
+      "fix_suggestion": "Define: type MyComponentProps = { title: string }; const MyComponent = ({ title }: MyComponentProps) => ...",
+      "file_extensions": [".tsx"],
+      "enabled": true
+    },
+    {
+      "id": "TS006",
+      "name": "no_non_null_assertion_abuse",
+      "description": "Excessive use of ! (non-null assertion) bypasses type safety",
+      "severity": "warning",
+      "category": "type_safety",
+      "type": "regex",
+      "pattern": "\\w+!\\.",
+      "message": "Non-null assertion (!) used. Add a proper null check instead of asserting non-null.",
+      "fix_suggestion": "Use optional chaining (?) or an explicit if-check before accessing the property.",
+      "file_extensions": [".ts", ".tsx"],
+      "exclude_file_patterns": ["*.test.*", "*.spec.*"],
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "version": "1.0.0",
+  "description": "Language-agnostic rules applied to all projects",
+  "rules": [
+    {
+      "id": "COM001",
+      "name": "no_hardcoded_secrets",
+      "description": "Detect hardcoded API keys, tokens, passwords, or secrets in source files",
+      "severity": "error",
+      "category": "security",
+      "type": "regex",
+      "pattern": "(?i)(api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key|password|passwd|db[_-]?pass)\\s*[:=]\\s*['\"][A-Za-z0-9+/=_\\-]{8,}['\"]",
+      "message": "Potential hardcoded secret detected. Never commit credentials to version control.",
+      "fix_suggestion": "Move this value to an environment variable (os.getenv / process.env) or a secret manager.",
+      "file_extensions": [],
+      "exclude_file_patterns": ["*.example", "*.template", "*.md", "*.txt", "*.env.example"],
+      "enabled": true
+    },
+    {
+      "id": "COM002",
+      "name": "no_todo_fixme_in_push",
+      "description": "Warn on TODO/FIXME/HACK comments left in code before push",
+      "severity": "warning",
+      "category": "code_quality",
+      "type": "regex",
+      "pattern": "\\b(TODO|FIXME|HACK|XXX|BUG)\\b",
+      "message": "Unresolved TODO/FIXME/HACK comment found. Resolve or track in your issue tracker before merging.",
+      "fix_suggestion": "Create a ticket for this work item and remove or reference it in the comment.",
+      "file_extensions": [],
+      "exclude_file_patterns": ["*.md", "*.txt", "CHANGELOG*"],
+      "enabled": true
+    },
+    {
+      "id": "COM003",
+      "name": "no_debug_breakpoints",
+      "description": "Detect uncommitted debugger / breakpoint statements",
+      "severity": "error",
+      "category": "debug",
+      "type": "regex",
+      "pattern": "\\b(debugger|pdb\\.set_trace|breakpoint\\(\\)|ipdb\\.set_trace)\\b",
+      "message": "Debug breakpoint found. Remove before pushing.",
+      "fix_suggestion": "Delete the breakpoint line or move it behind a debug flag.",
+      "file_extensions": [],
+      "enabled": true
+    },
+    {
+      "id": "COM004",
+      "name": "no_hardcoded_urls",
+      "description": "Flag raw hardcoded HTTP/HTTPS URLs that should live in a constants or config file",
+      "severity": "warning",
+      "category": "maintainability",
+      "type": "regex",
+      "pattern": "['\"]https?://(?!localhost|127\\.0\\.0\\.1|example\\.com|schema\\.org)[a-zA-Z0-9./_\\-?=&%+#]+['\"]",
+      "message": "Hardcoded URL found. Move it to a constants file or environment variable for easier maintenance.",
+      "fix_suggestion": "Define the URL in constants.ts / config.py and import it here.",
+      "file_extensions": [".py", ".js", ".ts", ".jsx", ".tsx"],
+      "exclude_file_patterns": ["*.test.*", "*.spec.*", "*.md"],
+      "enabled": true
+    },
+    {
+      "id": "COM005",
+      "name": "no_merge_conflict_markers",
+      "description": "Block pushes that contain unresolved merge conflict markers",
+      "severity": "error",
+      "category": "safety",
+      "type": "regex",
+      "pattern": "^(<{7}|>{7}|={7}|\\|{7}) ",
+      "message": "Unresolved merge conflict marker found. Resolve the conflict before pushing.",
+      "fix_suggestion": "Open the file, resolve the conflict, and remove the marker lines.",
+      "file_extensions": [],
+      "enabled": true
+    },
+    {
+      "id": "COM006",
+      "name": "no_env_file_committed",
+      "description": "Block .env files from being pushed",
+      "severity": "error",
+      "category": "security",
+      "type": "filename",
+      "pattern": "(^|/)\\.env(\\.local|\\.development|\\.production|\\.staging)?$",
+      "expect_match": false,
+      "message": ".env file detected in push. This may expose secrets.",
+      "fix_suggestion": "Add .env to .gitignore and use .env.example with placeholder values instead.",
+      "file_extensions": [],
+      "enabled": true
+    }
+  ]
+}
