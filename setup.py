@@ -17,7 +17,12 @@ setup(
     python_requires=">=3.9",
     packages=find_packages(exclude=["tests*"]),
     package_data={
-        "agent": ["rules_data/**/*.json"],
+        "agent": [
+            "rules_data/common/*.json",
+            "rules_data/python/*.json",
+            "rules_data/javascript/*.json",
+            "rules_data/typescript/*.json",
+        ],
     },
     include_package_data=True,
     install_requires=[
