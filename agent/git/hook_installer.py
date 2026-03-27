@@ -45,9 +45,13 @@ def _prompt_api_key() -> None:
             return
 
     print("\n[SETUP] AI Review requires a Groq API key (free at https://console.groq.com)")
-    key = input("        Enter your GROQ_API_KEY: ").strip()
+    try:
+        key = input("        Enter your GROQ_API_KEY: ").strip()
+    except KeyboardInterrupt:
+        print("\n[WARNING] Skipped. Run 'cra install' again to set the key later.")
+        return
     if not key:
-        print("[WARNING] No key entered — skipping. Set GROQ_API_KEY manually later.")
+        print("[WARNING] No key entered — skipping. Run 'cra install' again to set it later.")
         return
     _save_api_key(key)
 
