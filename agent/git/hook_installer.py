@@ -20,6 +20,12 @@ def _save_api_key(key: str) -> None:
         subprocess.run(["setx", "GROQ_API_KEY", key], check=True, capture_output=True)
         os.environ["GROQ_API_KEY"] = key  # also apply to current session
         print("[OK] GROQ_API_KEY saved to Windows environment variables.")
+        print("")
+        print("=" * 62)
+        print("  IMPORTANT: Close this terminal and open a NEW one before")
+        print("  running git commit — Windows requires a new session to")
+        print("  load the saved environment variable.")
+        print("=" * 62)
     else:
         # Mac / Linux — append to shell profile
         shell = os.environ.get("SHELL", "")
