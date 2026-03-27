@@ -82,25 +82,31 @@ class FrameworkDetector:
         return None
 
     def _detect_from_package_json(self) -> Optional[str]:
-        pkg = self.root / "package.json"
-        if not pkg.exists():
-            return None
-        try:
-            data = json.loads(pkg.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("Could not parse package.json: %s", exc)
-            return None
+        # Check root first, then one level of subdirectories (e.g. CT/server/package.json)
+        candidates = [self.root / "package.json"]
+        for subdir in self.root.iterdir():
+            if subdir.is_dir() and subdir.name not in {"node_modules", ".git", "venv", "dist", "build"}:
+                candidates.append(subdir / "package.json")
 
-        all_deps: Dict[str, str] = {
-            **data.get("dependencies", {}),
-            **data.get("devDependencies", {}),
-        }
+        for pkg in candidates:
+            if not pkg.exists():
+                continue
+            try:
+                data = json.loads(pkg.read_text(encoding="utf-8"))
+            except Exception as exc:
+                logger.warning("Could not parse package.json: %s", exc)
+                continue
 
-        # Ordered check — react-native before react, next before react
-        for dep, framework in _JS_FRAMEWORK_DEPS.items():
-            if dep in all_deps:
-                logger.debug("Framework detected via package.json dep '%s': %s", dep, framework)
-                return framework
+            all_deps: Dict[str, str] = {
+                **data.get("dependencies", {}),
+                **data.get("devDependencies", {}),
+            }
+
+            # Ordered check — react-native before react, next before react
+            for dep, framework in _JS_FRAMEWORK_DEPS.items():
+                if dep in all_deps:
+                    logger.debug("Framework detected via package.json dep '%s': %s", dep, framework)
+                    return framework
         return None
 
     def _detect_from_requirements(self) -> Optional[str]:

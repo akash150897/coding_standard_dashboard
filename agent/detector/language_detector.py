@@ -62,23 +62,30 @@ class LanguageDetector:
         2. Count file extensions across the project.
         3. Fall back to 'unknown'.
         """
-        # 1. Indicator files (fast and reliable)
-        for filename, lang in _INDICATOR_FILES.items():
-            if (self.project_root / filename).exists():
-                logger.debug("Language detected via indicator file '%s': %s", filename, lang)
-                return lang
+        # 1. Indicator files (fast and reliable) — check root and one level of subdirs
+        search_dirs = [self.project_root]
+        for subdir in self.project_root.iterdir():
+            if subdir.is_dir() and subdir.name not in {"node_modules", ".git", "venv", "dist", "build"}:
+                search_dirs.append(subdir)
 
-        # 2. Check if package.json marks a TypeScript project
-        pkg_json = self.project_root / "package.json"
-        if pkg_json.exists():
-            try:
-                data = json.loads(pkg_json.read_text(encoding="utf-8"))
-                deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
-                if "typescript" in deps:
-                    return "typescript"
-            except Exception:
-                pass
-            return "javascript"
+        for search_dir in search_dirs:
+            for filename, lang in _INDICATOR_FILES.items():
+                if (search_dir / filename).exists():
+                    logger.debug("Language detected via indicator file '%s': %s", filename, lang)
+                    return lang
+
+        # 2. Check if package.json marks a TypeScript project — root and subdirs
+        for search_dir in search_dirs:
+            pkg_json = search_dir / "package.json"
+            if pkg_json.exists():
+                try:
+                    data = json.loads(pkg_json.read_text(encoding="utf-8"))
+                    deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+                    if "typescript" in deps:
+                        return "typescript"
+                except Exception:
+                    pass
+                return "javascript"
 
         # 3. Count extensions
         counts: Dict[str, int] = {}
