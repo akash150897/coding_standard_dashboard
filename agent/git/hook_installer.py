@@ -63,6 +63,10 @@ _HOOK_TEMPLATE = """\
 # Use forward slashes — backslashes break Git's sh.exe on Windows
 PYTHON="{python_bin}"
 
+# Deactivate any active venv so the system Python (where cra is installed) is used
+unset VIRTUAL_ENV
+unset PYTHONHOME
+
 # Review only staged files before the commit is created (with AI review)
 "$PYTHON" -m agent.cli review --staged --ai
 STATUS=$?

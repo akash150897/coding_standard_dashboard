@@ -161,6 +161,12 @@ def run_cli(argv: Optional[List[str]] = None) -> int:
         print()
         return 0
 
+    # ── setup-key ────────────────────────────────────────────────────────
+    elif command == "setup-key":
+        from agent.git.hook_installer import _prompt_api_key
+        _prompt_api_key()
+        return 0
+
     else:
         print(f"[ERROR] Unknown command '{command}'. Run with --help for usage.")
         return 2
