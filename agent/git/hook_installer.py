@@ -13,13 +13,21 @@ from agent.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _save_api_key(key: str) -> None:
-    """Persist GROQ_API_KEY as a permanent system environment variable."""
+_PROVIDERS = {
+    "1": ("GROQ_API_KEY",       "Groq",      "https://console.groq.com        (Free, no limits)"),
+    "2": ("GEMINI_API_KEY",     "Gemini",    "https://aistudio.google.com     (Free tier)"),
+    "3": ("OPENAI_API_KEY",     "OpenAI",    "https://platform.openai.com     (Paid)"),
+    "4": ("ANTHROPIC_API_KEY",  "Anthropic", "https://console.anthropic.com   (Paid)"),
+}
+
+
+def _save_api_key(env_var: str, key: str) -> None:
+    """Persist the given API key as a permanent system environment variable."""
     system = platform.system()
     if system == "Windows":
-        subprocess.run(["setx", "GROQ_API_KEY", key], check=True, capture_output=True)
-        os.environ["GROQ_API_KEY"] = key  # also apply to current session
-        print("[OK] GROQ_API_KEY saved to Windows environment variables.")
+        subprocess.run(["setx", env_var, key], check=True, capture_output=True)
+        os.environ[env_var] = key
+        print(f"[OK] {env_var} saved to Windows environment variables.")
         print("")
         print("=" * 62)
         print("  IMPORTANT: Close this terminal and open a NEW one before")
@@ -27,39 +35,60 @@ def _save_api_key(key: str) -> None:
         print("  load the saved environment variable.")
         print("=" * 62)
     else:
-        # Mac / Linux — append to shell profile
         shell = os.environ.get("SHELL", "")
-        if "zsh" in shell:
-            profile = Path.home() / ".zshrc"
-        else:
-            profile = Path.home() / ".bashrc"
-        line = f'\nexport GROQ_API_KEY="{key}"\n'
+        profile = Path.home() / (".zshrc" if "zsh" in shell else ".bashrc")
+        line = f'\nexport {env_var}="{key}"\n'
         with open(profile, "a", encoding="utf-8") as f:
             f.write(line)
-        os.environ["GROQ_API_KEY"] = key  # also apply to current session
-        print(f"[OK] GROQ_API_KEY saved to {profile}")
+        os.environ[env_var] = key
+        print(f"[OK] {env_var} saved to {profile}")
         print(f"[INFO] Run: source {profile}  (or open a new terminal)")
 
 
 def _prompt_api_key() -> None:
-    """Ask the user for their Groq API key and save it if not already set."""
-    existing = os.environ.get("GROQ_API_KEY")
-    if existing:
-        print(f"[INFO] GROQ_API_KEY is already set ({existing[:8]}...).")
-        answer = input("       Do you want to replace it? [y/N] ").strip().lower()
+    """Ask the user to choose an AI provider and enter their API key."""
+    # Check if any key is already set
+    existing_var = next(
+        (var for var, _, _ in _PROVIDERS.values() if os.environ.get(var)), None
+    )
+    if existing_var:
+        print(f"\n[INFO] {existing_var} is already set ({os.environ[existing_var][:8]}...).")
+        try:
+            answer = input("       Do you want to replace it? [y/N] ").strip().lower()
+        except KeyboardInterrupt:
+            print("\n[WARNING] Skipped.")
+            return
         if answer != "y":
             return
 
-    print("\n[SETUP] AI Review requires a Groq API key (free at https://console.groq.com)")
+    print("\n[SETUP] Choose your AI provider for code review:\n")
+    for num, (env_var, name, url) in _PROVIDERS.items():
+        print(f"  {num}. {name:12}  {url}")
+
+    print()
     try:
-        key = input("        Enter your GROQ_API_KEY: ").strip()
+        choice = input("  Enter choice (1-4): ").strip()
     except KeyboardInterrupt:
         print("\n[WARNING] Skipped. Run 'cra install' again to set the key later.")
         return
+
+    if choice not in _PROVIDERS:
+        print("[WARNING] Invalid choice — skipping. Run 'cra install' again to set the key later.")
+        return
+
+    env_var, name, url = _PROVIDERS[choice]
+    print(f"\n  Get your free API key at: {url.split()[0]}")
+    try:
+        key = input(f"  Enter your {env_var}: ").strip()
+    except KeyboardInterrupt:
+        print("\n[WARNING] Skipped. Run 'cra install' again to set the key later.")
+        return
+
     if not key:
         print("[WARNING] No key entered — skipping. Run 'cra install' again to set it later.")
         return
-    _save_api_key(key)
+
+    _save_api_key(env_var, key)
 
 _HOOK_TEMPLATE = """\
 #!/bin/sh
@@ -134,25 +163,34 @@ def install_hook(repo_root: Optional[str] = None, force: bool = False) -> bool:
 
 
 def _remove_api_key() -> None:
-    """Remove GROQ_API_KEY from the system environment."""
+    """Remove all known AI provider API keys from the system environment."""
+    all_vars = [var for var, _, _ in _PROVIDERS.values()]
     system = platform.system()
-    if system == "Windows":
-        subprocess.run(["reg", "delete", "HKCU\\Environment", "/v", "GROQ_API_KEY", "/f"],
-                       capture_output=True)
-        os.environ.pop("GROQ_API_KEY", None)
-        print("[OK] GROQ_API_KEY removed from Windows environment variables.")
+    removed = []
+
+    for env_var in all_vars:
+        if system == "Windows":
+            result = subprocess.run(
+                ["reg", "delete", "HKCU\\Environment", "/v", env_var, "/f"],
+                capture_output=True,
+            )
+            if result.returncode == 0:
+                removed.append(env_var)
+        else:
+            shell = os.environ.get("SHELL", "")
+            profile = Path.home() / (".zshrc" if "zsh" in shell else ".bashrc")
+            if profile.exists():
+                lines = profile.read_text(encoding="utf-8").splitlines(keepends=True)
+                new_lines = [l for l in lines if env_var not in l]
+                if len(new_lines) != len(lines):
+                    profile.write_text("".join(new_lines), encoding="utf-8")
+                    removed.append(env_var)
+        os.environ.pop(env_var, None)
+
+    if removed:
+        print(f"[OK] Removed: {', '.join(removed)}")
     else:
-        shell = os.environ.get("SHELL", "")
-        profile = Path.home() / (".zshrc" if "zsh" in shell else ".bashrc")
-        if profile.exists():
-            lines = profile.read_text(encoding="utf-8").splitlines(keepends=True)
-            new_lines = [l for l in lines if "GROQ_API_KEY" not in l]
-            if len(new_lines) != len(lines):
-                profile.write_text("".join(new_lines), encoding="utf-8")
-                print(f"[OK] GROQ_API_KEY removed from {profile}")
-            else:
-                print("[INFO] GROQ_API_KEY not found in shell profile.")
-        os.environ.pop("GROQ_API_KEY", None)
+        print("[INFO] No API keys found to remove.")
 
 
 def uninstall_hook(repo_root: Optional[str] = None) -> bool:
@@ -178,13 +216,19 @@ def uninstall_hook(repo_root: Optional[str] = None) -> bool:
         hook_path.unlink()
         print(f"[OK] Pre-commit hook removed from {hook_path}")
 
-    # Offer to remove the API key too
-    if os.environ.get("GROQ_API_KEY"):
-        answer = input("\nDo you also want to remove the GROQ_API_KEY from your system? [y/N] ").strip().lower()
+    # Offer to remove any set API keys
+    all_vars = [var for var, _, _ in _PROVIDERS.values()]
+    set_vars = [v for v in all_vars if os.environ.get(v)]
+    if set_vars:
+        print(f"\n[INFO] Found API key(s): {', '.join(set_vars)}")
+        try:
+            answer = input("Do you also want to remove them from your system? [y/N] ").strip().lower()
+        except KeyboardInterrupt:
+            answer = "n"
         if answer == "y":
             _remove_api_key()
     else:
-        print("[INFO] No GROQ_API_KEY found in environment — nothing to clean up.")
+        print("[INFO] No API keys found in environment — nothing to clean up.")
 
     print("\n[INFO] To fully remove the package run:  pip uninstall code-review-agent")
     return True
