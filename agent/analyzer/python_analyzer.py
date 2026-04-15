@@ -64,6 +64,7 @@ class PythonAnalyzer(BaseAnalyzer):
         "duplicate_strings_py": "_check_duplicate_strings",
         "cyclomatic_complexity": "_check_cyclomatic_complexity",
         "duplicate_definitions_py": "_check_duplicate_definitions",
+        "unused_functions_py": "_check_unused_functions",
     }
 
     def run_ast_check(
@@ -899,4 +900,56 @@ class PythonAnalyzer(BaseAnalyzer):
                     _scan_scope(node.body)
 
         _scan_scope(tree.body)
+        return violations
+
+    def _check_unused_functions(
+        self,
+        tree: ast.AST,
+        file_path: str,
+        content: str,
+        lines: List[str],
+        rule: Dict[str, Any],
+    ) -> List[Violation]:
+        """Detect top-level/nested functions defined but never called in the file."""
+        violations: List[Violation] = []
+
+        # Collect all function definitions (skip dunder and private-by-convention)
+        func_defs: Dict[str, int] = {}  # name → line
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                name = node.name
+                # Skip dunder methods, decorators like @property, @abstractmethod
+                if name.startswith("__") and name.endswith("__"):
+                    continue
+                # Skip decorated functions (likely framework hooks)
+                if node.decorator_list:
+                    continue
+                func_defs[name] = node.lineno
+
+        # Check each function for usage (ast.Name in Load context or ast.Attribute)
+        all_names_used: Set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+                all_names_used.add(node.id)
+            elif isinstance(node, ast.Attribute):
+                all_names_used.add(node.attr)
+            # Function calls via Call node
+            elif isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name):
+                    all_names_used.add(node.func.id)
+                elif isinstance(node.func, ast.Attribute):
+                    all_names_used.add(node.func.attr)
+
+        for name, line_no in func_defs.items():
+            if name not in all_names_used:
+                snippet = lines[line_no - 1] if line_no <= len(lines) else ""
+                violations.append(
+                    _make_violation(
+                        rule, file_path, line_no,
+                        message_override=(
+                            f"Function '{name}' is defined but never called or referenced."
+                        ),
+                        snippet=snippet,
+                    )
+                )
         return violations

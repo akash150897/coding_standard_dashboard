@@ -73,6 +73,7 @@ class JavaScriptAnalyzer(BaseAnalyzer):
         "async_without_try_catch": "_check_async_without_try_catch",
         "no_unused_imports_js": "_check_unused_imports",
         "no_unused_variables_js": "_check_unused_variables",
+        "no_unused_functions_js": "_check_unused_functions",
         "no_duplicate_declarations_js": "_check_duplicate_declarations",
     }
 
@@ -535,33 +536,103 @@ class JavaScriptAnalyzer(BaseAnalyzer):
         r'(?:\{([^}]+)\}|(\w+))'        # destructured or simple name
         r'\s*='
     )
+    _FUNC_DEF_RE = re.compile(
+        r'(?:'
+        r'(?:export\s+)?(?:async\s+)?function\s+(\w+)'   # function foo()
+        r'|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(' # const foo = (
+        r'|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\w*\s*=>'  # const foo = () =>
+        r')'
+    )
 
     def _check_unused_variables(
         self, file_path: str, content: str, rule: Dict[str, Any]
     ) -> List[Violation]:
-        """Flag variables that are declared but never referenced elsewhere."""
+        """Flag variables that are declared but never referenced elsewhere.
+
+        Fixes: re-declarations of the same name do NOT count as usage.
+        """
         violations: List[Violation] = []
         lines = content.splitlines()
 
         # Collect all declarations: (name, line_number, line_text)
         declarations: List[Tuple[str, int, str]] = []
+        # Track which lines are declaration lines for each name
+        decl_lines_for_name: Dict[str, set] = {}
+
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
             if stripped.startswith("//") or stripped.startswith("*"):
                 continue
             for m in self._DECL_RE.finditer(line):
-                # Destructured names
                 if m.group(1):
                     for name in re.split(r'[,\s]+', m.group(1)):
                         name = name.split(':')[0].strip()
                         if name and name.isidentifier():
                             declarations.append((name, i, line))
-                # Simple name
+                            decl_lines_for_name.setdefault(name, set()).add(i)
                 elif m.group(2):
-                    declarations.append((m.group(2), i, line))
+                    name = m.group(2)
+                    declarations.append((name, i, line))
+                    decl_lines_for_name.setdefault(name, set()).add(i)
 
-        # Check each declaration for usage elsewhere
+        # Check each declaration for usage on non-declaration lines
         for name, line_num, line_text in declarations:
+            pattern = re.compile(r'\b' + re.escape(name) + r'\b')
+            skip_lines = decl_lines_for_name.get(name, set())
+            used = False
+            for j, other_line in enumerate(lines, 1):
+                if j in skip_lines:
+                    continue
+                # Skip import lines — importing is not "using"
+                stripped_other = other_line.strip()
+                if stripped_other.startswith("import "):
+                    continue
+                if pattern.search(other_line):
+                    used = True
+                    break
+            if not used:
+                violations.append(
+                    _make_violation(
+                        rule, file_path, line_num,
+                        message_override=(
+                            f"Variable '{name}' is declared but never used. Remove it or use it."
+                        ),
+                        snippet=line_text.strip(),
+                    )
+                )
+        return violations
+
+    # ── Unused functions ──────────────────────────────────────────────
+    def _check_unused_functions(
+        self, file_path: str, content: str, rule: Dict[str, Any]
+    ) -> List[Violation]:
+        """Flag functions that are defined but never called/referenced elsewhere in the file."""
+        violations: List[Violation] = []
+        lines = content.splitlines()
+
+        # Collect function definitions
+        functions: List[Tuple[str, int, str]] = []
+        for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            m = self._FUNC_DEF_RE.search(line)
+            if m:
+                name = m.group(1) or m.group(2) or m.group(3)
+                if name:
+                    functions.append((name, i, line))
+
+        for name, line_num, line_text in functions:
+            # Skip default exports and common lifecycle names
+            if name in ("default", "getStaticProps", "getServerSideProps",
+                        "getStaticPaths", "generateMetadata", "generateStaticParams",
+                        "middleware", "loader", "action"):
+                continue
+            # Skip if the function is the default export component
+            stripped_text = line_text.strip()
+            if "export default" in stripped_text or "export function" in stripped_text:
+                continue
+
             pattern = re.compile(r'\b' + re.escape(name) + r'\b')
             used = False
             for j, other_line in enumerate(lines, 1):
@@ -575,7 +646,7 @@ class JavaScriptAnalyzer(BaseAnalyzer):
                     _make_violation(
                         rule, file_path, line_num,
                         message_override=(
-                            f"Variable '{name}' is declared but never used."
+                            f"Function '{name}' is defined but never called or referenced."
                         ),
                         snippet=line_text.strip(),
                     )

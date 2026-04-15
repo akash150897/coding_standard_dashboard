@@ -335,6 +335,93 @@ def detect_cross_file_duplicates(
     return violations, stats
 
 
+# ── Cross-file duplicate constants / variables ────────────────────────────────
+
+_JS_CONST_RE = re.compile(
+    r'^\s*(?:export\s+)?(?:const|let)\s+(\w+)\s*=\s*(.+)',
+)
+
+_PY_CONST_RE = re.compile(
+    r'^([A-Z][A-Z0-9_]+)\s*=\s*(.+)',  # UPPER_CASE = ... (module-level constants)
+)
+
+
+def detect_cross_file_constants(
+    files: List[str],
+    language: str,
+) -> List[Violation]:
+    """Find identical constants/variables defined in multiple files.
+
+    For JS/TS: const/let declarations with the same name AND same value.
+    For Python: UPPER_CASE module-level assignments with the same name AND same value.
+    """
+    violations: List[Violation] = []
+
+    # name → [(file, line, value_text)]
+    const_map: Dict[str, List[Tuple[str, int, str]]] = defaultdict(list)
+
+    for file_path in files:
+        try:
+            content = Path(file_path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        ext = Path(file_path).suffix.lower()
+        for i, line in enumerate(content.splitlines(), 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//") or stripped.startswith("#"):
+                continue
+
+            m = None
+            if ext in (".js", ".jsx", ".ts", ".tsx"):
+                m = _JS_CONST_RE.match(line)
+            elif ext == ".py":
+                m = _PY_CONST_RE.match(stripped)
+
+            if m:
+                name = m.group(1)
+                value = m.group(2).strip().rstrip(";").strip()
+                # Only track non-trivial values (skip short ones like `= 0`, `= true`)
+                if len(value) >= 6:
+                    const_map[name].append((file_path, i, value))
+
+    for name, locations in const_map.items():
+        if len(locations) < 2:
+            continue
+        # Group by identical value
+        value_groups: Dict[str, List[Tuple[str, int]]] = defaultdict(list)
+        for fp, line, val in locations:
+            value_groups[val].append((fp, line))
+        for val, group in value_groups.items():
+            if len(group) < 2:
+                continue
+            unique_files = set(fp for fp, _ in group)
+            if len(unique_files) < 2:
+                continue
+            first_file, first_line = group[0]
+            for fp, line in group[1:]:
+                violations.append(
+                    Violation(
+                        rule_id="CROSS003",
+                        rule_name="cross_file_duplicate_constant",
+                        severity=Severity.WARNING,
+                        file_path=fp,
+                        line_number=line,
+                        message=(
+                            f"Constant '{name}' has the same value as in "
+                            f"{Path(first_file).name}:{first_line}. "
+                            "Extract to a shared constants file."
+                        ),
+                        fix_suggestion=(
+                            f"Create a shared constants file (e.g. constants.ts or constants.py) "
+                            f"and import '{name}' from there."
+                        ),
+                        category="duplication",
+                    )
+                )
+    return violations
+
+
 # ── Missing test file detection ───────────────────────────────────────────────
 
 # Mapping: source patterns → expected test file patterns

@@ -10,6 +10,7 @@ from agent.analyzer.taint_analyzer import run_taint_analysis
 from agent.analyzer.cross_file_analyzer import (
     detect_architecture_issues,
     detect_cross_file_duplicates,
+    detect_cross_file_constants,
     detect_missing_test_files,
 )
 from agent.analyzer.javascript_analyzer import JavaScriptAnalyzer
@@ -255,7 +256,13 @@ def run_review(
         elif dup_pct > 0:
             print(f"  ✅ Duplication within threshold ({max_dup_pct}% max)")
 
-        # 2. Missing test file detection
+        # 2. Cross-file duplicate constants
+        const_violations = detect_cross_file_constants(
+            files=subproject_files, language=ctx.language,
+        )
+        cross_violations.extend(const_violations)
+
+        # 3. Missing test file detection
         test_violations = detect_missing_test_files(
             files=subproject_files,
             project_root=subproject_root,

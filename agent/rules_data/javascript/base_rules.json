@@ -212,6 +212,20 @@
       "file_extensions": [".js", ".jsx", ".ts", ".tsx"],
       "exclude_file_patterns": ["*.test.*", "*.spec.*"],
       "enabled": true
+    },
+    {
+      "id": "JS016",
+      "name": "no_unused_functions_js",
+      "description": "Functions defined but never called or referenced are dead code",
+      "severity": "warning",
+      "category": "dead_code",
+      "type": "ast",
+      "ast_check": "no_unused_functions_js",
+      "message": "Unused function detected. Remove it or call it.",
+      "fix_suggestion": "Delete the unused function or reference it somewhere. If it is an exported utility, ensure it is imported elsewhere.",
+      "file_extensions": [".js", ".jsx", ".ts", ".tsx"],
+      "exclude_file_patterns": ["*.test.*", "*.spec.*", "*.d.ts"],
+      "enabled": true
     }
   ]
 }

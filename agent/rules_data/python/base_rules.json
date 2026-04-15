@@ -335,6 +335,20 @@
       "file_extensions": [".py"],
       "exclude_file_patterns": ["test_*.py", "*_test.py"],
       "enabled": true
+    },
+    {
+      "id": "PY025",
+      "name": "no_unused_functions_py",
+      "description": "Functions defined but never called or referenced anywhere in the file are dead code",
+      "severity": "warning",
+      "category": "dead_code",
+      "type": "ast",
+      "ast_check": "unused_functions_py",
+      "message": "Unused function detected. Remove it or call it.",
+      "fix_suggestion": "Delete the unused function or reference it. If it is a public API, ensure it is imported elsewhere.",
+      "file_extensions": [".py"],
+      "exclude_file_patterns": ["test_*.py", "*_test.py", "conftest.py", "__init__.py"],
+      "enabled": true
     }
   ]
 }

@@ -56,6 +56,7 @@ def _run_scan(project_dir: str, language: Optional[str] = None,
     from agent.rules.rule_engine import RuleEngine
     from agent.analyzer.cross_file_analyzer import (
         detect_cross_file_duplicates,
+        detect_cross_file_constants,
         detect_missing_test_files,
         detect_architecture_issues,
     )
@@ -81,9 +82,11 @@ def _run_scan(project_dir: str, language: Optional[str] = None,
 
     # Cross-file analysis
     dup_violations, dup_stats = detect_cross_file_duplicates(files, lang)
+    const_violations = detect_cross_file_constants(files, lang)
     test_violations = detect_missing_test_files(files, project_dir, lang)
     arch_violations = detect_architecture_issues(project_dir, lang, fw, files)
     result.violations.extend(dup_violations)
+    result.violations.extend(const_violations)
     result.violations.extend(test_violations)
     result.violations.extend(arch_violations)
     result.deduplicate()
