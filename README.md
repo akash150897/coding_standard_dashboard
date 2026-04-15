@@ -62,7 +62,7 @@ git commit -m "your message"
 ### 1. Install the package
 
 ```bash
-pip install git+https://github.com/pratham-b4g/code_review_agent.git
+pip install --upgrade git+https://github.com/akash150897/coding_standard.git
 ```
 
 This installs:

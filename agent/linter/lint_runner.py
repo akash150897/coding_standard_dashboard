@@ -164,6 +164,8 @@ def _ensure_eslint(project_root: str, framework: Optional[str]) -> None:
       - A package.json exists in the project root
     """
     if _find_eslint(project_root) is not None:
+        # Ensure unused-imports plugin is installed for --fix to remove unused imports
+        _ensure_unused_imports_plugin(project_root)
         return  # Already installed
 
     if not shutil.which("npm"):
@@ -175,7 +177,7 @@ def _ensure_eslint(project_root: str, framework: Optional[str]) -> None:
 
     print(f"{_CYAN}[LINT] ESLint not found — installing automatically...{_RESET}")
     result = subprocess.run(
-        ["npm", "install", "--save-dev", "eslint"],
+        ["npm", "install", "--save-dev", "eslint", "eslint-plugin-unused-imports"],
         cwd=project_root,
         capture_output=True,
         text=True,
@@ -191,6 +193,117 @@ def _ensure_eslint(project_root: str, framework: Optional[str]) -> None:
         _create_eslint_config(project_root, framework)
 
 
+def _ensure_unused_imports_plugin(project_root: str) -> None:
+    """Install eslint-plugin-unused-imports if not already present.
+
+    This plugin is needed for ESLint --fix to auto-remove unused imports
+    (e.g. importing useEffect in React/Next.js but not using it).
+    """
+    plugin_path = Path(project_root) / "node_modules" / "eslint-plugin-unused-imports"
+    if plugin_path.exists():
+        return  # Already installed
+
+    pkg_json = Path(project_root) / "package.json"
+    if not pkg_json.exists():
+        return
+
+    if not shutil.which("npm"):
+        return
+
+    print(f"{_CYAN}[LINT] Installing eslint-plugin-unused-imports for auto-fix support...{_RESET}")
+    result = subprocess.run(
+        ["npm", "install", "--save-dev", "eslint-plugin-unused-imports"],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"{_YELLOW}[LINT] Plugin install failed: {result.stderr.strip()}{_RESET}")
+        return
+    print(f"{_CYAN}[LINT] eslint-plugin-unused-imports installed.{_RESET}")
+
+    # Patch existing eslint config to add the plugin rules
+    _patch_eslint_config_with_unused_imports(project_root)
+
+
+def _patch_eslint_config_with_unused_imports(project_root: str) -> None:
+    """Add unused-imports plugin rules to an existing ESLint config.
+
+    Supports both legacy .eslintrc.json and the new flat config (eslint.config.mjs).
+    """
+    import json
+
+    # Try legacy .eslintrc.json first
+    config_path = Path(project_root) / ".eslintrc.json"
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+
+        plugins = config.get("plugins", [])
+        if "unused-imports" not in plugins:
+            plugins.append("unused-imports")
+            config["plugins"] = plugins
+
+        rules = config.get("rules", {})
+        if "unused-imports/no-unused-imports" not in rules:
+            rules["no-unused-vars"] = "off"
+            rules["unused-imports/no-unused-imports"] = "error"
+            rules["unused-imports/no-unused-vars"] = [
+                "warn",
+                {"vars": "all", "varsIgnorePattern": "^_", "args": "after-used", "argsIgnorePattern": "^_"},
+            ]
+            config["rules"] = rules
+
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+        print(f"{_CYAN}[LINT] Patched .eslintrc.json with unused-imports plugin rules.{_RESET}")
+        return
+
+    # Try flat config (eslint.config.mjs / eslint.config.js)
+    for flat_name in ("eslint.config.mjs", "eslint.config.js"):
+        flat_path = Path(project_root) / flat_name
+        if flat_path.exists():
+            content = flat_path.read_text(encoding="utf-8")
+            if "unused-imports" in content:
+                return  # Already patched
+
+            # Inject the plugin import and rule block
+            patch_import = 'import unusedImports from "eslint-plugin-unused-imports";\n'
+            patch_block = """
+{
+  plugins: {
+    "unused-imports": unusedImports,
+  },
+  rules: {
+    "no-unused-vars": "off",
+    "unused-imports/no-unused-imports": "error",
+    "unused-imports/no-unused-vars": ["warn", { vars: "all", varsIgnorePattern: "^_", args: "after-used", argsIgnorePattern: "^_" }],
+  },
+},
+"""
+            # Insert import at the top (after existing imports)
+            if "import " in content:
+                # Add after last import
+                lines = content.splitlines(keepends=True)
+                last_import_idx = 0
+                for idx, line in enumerate(lines):
+                    if line.strip().startswith("import "):
+                        last_import_idx = idx
+                lines.insert(last_import_idx + 1, patch_import)
+                content = "".join(lines)
+            else:
+                content = patch_import + content
+
+            # Insert rule block before the closing ];
+            if "];" in content:
+                content = content.replace("];", patch_block + "];", 1)
+
+            flat_path.write_text(content, encoding="utf-8")
+            print(f"{_CYAN}[LINT] Patched {flat_name} with unused-imports plugin rules.{_RESET}")
+            return
+
+
 def _create_eslint_config(project_root: str, framework: Optional[str]) -> None:
     """Write a framework-appropriate .eslintrc.json into project_root."""
     import json
@@ -200,11 +313,19 @@ def _create_eslint_config(project_root: str, framework: Optional[str]) -> None:
     # Base config — always included
     config: dict = {
         "extends": ["eslint:recommended"],
+        "plugins": ["unused-imports"],
         "parserOptions": {
             "ecmaVersion": "latest",
             "sourceType": "module",
         },
-        "rules": {},
+        "rules": {
+            "no-unused-vars": "off",
+            "unused-imports/no-unused-imports": "error",
+            "unused-imports/no-unused-vars": [
+                "warn",
+                {"vars": "all", "varsIgnorePattern": "^_", "args": "after-used", "argsIgnorePattern": "^_"},
+            ],
+        },
     }
 
     if fw in ("react", "react_native"):

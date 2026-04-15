@@ -1,0 +1,187 @@
+# Code Review Agent — Setup & Usage Guide
+# GitHub: https://github.com/akash150897/coding_standard.git
+
+========================================================================
+  INSTALLATION (one command — no cloning needed)
+========================================================================
+
+  pip install --upgrade git+https://github.com/akash150897/coding_standard.git
+
+That's it. This installs:
+  - All dependencies (ruff, pyyaml, groq, requests)
+  - The "cra" command globally on your system
+
+Now you can use "cra" from anywhere — no paths, no cloning.
+
+To update to the latest version later, just run the same command again.
+
+
+========================================================================
+  QUICK START — USE ON ANY PROJECT
+========================================================================
+
+  # Review any project folder
+  cra review --dir /path/to/your-project
+
+  # Auto-fix lint errors
+  cra fix --dir /path/to/your-project
+
+  # Install as git hook (auto-review on every push)
+  cd /path/to/your-project
+  cra install
+
+  # See all commands
+  cra --help
+
+  # See help for a specific command
+  cra review --help
+  cra fix --help
+
+
+========================================================================
+  ALL COMMANDS
+========================================================================
+
+  cra review     Run a full code quality review
+  cra fix        Auto-fix common lint errors (ruff/eslint)
+  cra install    Install pre-push git hook into a repo
+  cra uninstall  Remove the pre-push hook
+  cra rules      List all available review rules
+  cra baseline   Save/manage tech-debt baselines
+  cra report     Generate a detailed Markdown report
+  cra setup-key  Configure API key for AI reviews
+
+Add --help to any command for detailed options and examples.
+
+
+========================================================================
+  REVIEW COMMAND (most used)
+========================================================================
+
+  cra review --dir /path/to/project              # Review a project folder
+  cra review --staged                            # Review only staged files
+  cra review --diff-only                         # Flag only changed lines
+  cra review --fix                               # Auto-fix then review
+  cra review --fix --unsafe-fixes                # Fix including unsafe fixes
+  cra review --report                            # Generate Markdown report
+  cra review --lang python --framework fastapi   # Override detection
+  cra review src/main.py src/utils.py            # Review specific files
+  cra review --ai                                # Enable AI deep review
+
+
+========================================================================
+  AUTO-FIX COMMAND
+========================================================================
+
+  cra fix --dir /path/to/project             # Fix lint errors (no review)
+  cra fix --unsafe-fixes                     # Also apply unsafe fixes
+  cra fix src/main.py src/utils.py           # Fix specific files
+  cra review --fix --dir /path/to/project    # Fix + review in one shot
+
+What gets auto-fixed:
+  Python (ruff):  F401 unused imports, I001 import sorting, W291 whitespace,
+                  UP007/UP035 type modernization, and 400+ more rules
+  JS/TS (eslint): Formatting, unused vars, semicolons, etc.
+
+
+========================================================================
+  BASELINE (ignore existing tech debt)
+========================================================================
+
+  cra baseline save --dir /path/to/project
+
+Then add to your project's .code-review-agent.yaml:
+  use_baseline: true
+
+Now only NEW violations are flagged. Baseline is stored per-branch.
+
+
+========================================================================
+  REPORTS
+========================================================================
+
+  cra report --dir /path/to/project
+
+Creates cra-report.md with:
+  - Severity breakdown (errors / warnings / info)
+  - Code duplication % (blocks commit if > 10%)
+  - Code snippets with line numbers
+  - "Why it matters" + "How to fix" for each issue
+
+
+========================================================================
+  LIST RULES
+========================================================================
+
+  cra rules --lang python
+  cra rules --lang javascript
+  cra rules --lang typescript --framework react
+
+
+========================================================================
+  GIT HOOK (auto-review on every push)
+========================================================================
+
+  # Install into any repo
+  cd /path/to/your-project
+  cra install
+
+  # Now every "git push" auto-runs the review
+  # If issues found -> push is BLOCKED
+
+  # To remove the hook
+  cra uninstall
+
+
+========================================================================
+  PROJECT-LEVEL CONFIG (optional)
+========================================================================
+
+Create .code-review-agent.yaml in your project root:
+
+  diff_only: true                     # Only flag violations on changed lines
+  use_baseline: true                  # Suppress known/existing violations
+  max_duplication_percent: 10         # Block commit if duplication > 10%
+  report_file_threshold: 15           # Auto-generate report when violations > 15
+
+  severity_overrides:
+    PY003: error                      # Make print() an error
+    COM002: info                      # Downgrade TODO/FIXME to info
+
+  exclude_paths:
+    - node_modules
+    - venv
+    - .git
+    - dist
+    - build
+
+
+========================================================================
+  SUPPRESS FALSE POSITIVES (inline)
+========================================================================
+
+  Python:   eval('safe_code')  # noqa
+            eval('safe_code')  # cra-ignore
+
+  JS/TS:    console.log('debug'); // noqa
+            console.log('debug'); // cra-ignore
+
+
+========================================================================
+  WHAT IT CHECKS (149+ rules)
+========================================================================
+
+  - Security vulnerabilities (eval, exec, SQL injection, XSS, SSRF)
+  - Hardcoded secrets (API keys, passwords, tokens)
+  - Data-flow / taint analysis (tracks user input to dangerous sinks)
+  - Code duplication % (blocks commit if > 10%)
+  - Missing error handling (bare except, empty catch)
+  - Missing test files
+  - Architecture issues (large files, missing .gitignore, .env leaks)
+  - Type safety issues
+  - Code style and formatting
+  - Cross-file duplication detection
+  - Linting via ruff (Python) and eslint (JS/TS)
+
+---
+All commands support --help for detailed usage information.
