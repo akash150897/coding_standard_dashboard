@@ -324,6 +324,39 @@ class JavaScriptAnalyzer(BaseAnalyzer):
                     )
         return violations
 
+    # Regex to detect CSS / Tailwind class-name strings (e.g. "text-lg font-semibold mb-4")
+    _CSS_CLASS_RE = re.compile(
+        r'^[\s\-a-z0-9/:.\[\]!@#%]+$', re.IGNORECASE
+    )
+    # Common Tailwind/CSS prefixes that identify class strings
+    _CSS_TOKENS = frozenset({
+        "flex", "grid", "block", "inline", "hidden", "relative", "absolute",
+        "fixed", "sticky", "static", "w-", "h-", "p-", "m-", "px-", "py-",
+        "mx-", "my-", "pt-", "pb-", "pl-", "pr-", "mt-", "mb-", "ml-", "mr-",
+        "text-", "font-", "bg-", "border-", "rounded", "shadow", "opacity-",
+        "gap-", "space-", "max-", "min-", "overflow-", "z-", "top-", "bottom-",
+        "left-", "right-", "col-", "row-", "justify-", "items-", "self-",
+        "hover:", "focus:", "active:", "sm:", "md:", "lg:", "xl:", "2xl:",
+        "dark:", "group-", "transition", "duration-", "ease-", "animate-",
+        "container", "cursor-", "pointer-events-", "select-", "sr-only",
+    })
+
+    @classmethod
+    def _is_css_class_string(cls, s: str) -> bool:
+        """Return True if the string looks like CSS / Tailwind class names."""
+        if not cls._CSS_CLASS_RE.match(s):
+            return False
+        # Check if any token in the string matches known CSS/Tailwind prefixes
+        tokens = s.split()
+        if not tokens:
+            return False
+        css_hits = sum(
+            1 for t in tokens
+            if any(t.startswith(prefix) or t == prefix.rstrip("-") for prefix in cls._CSS_TOKENS)
+        )
+        # If more than half the tokens look like CSS classes, skip it
+        return css_hits >= len(tokens) * 0.5
+
     def _check_duplicate_strings(
         self, file_path: str, content: str, rule: Dict[str, Any]
     ) -> List[Violation]:
@@ -332,13 +365,23 @@ class JavaScriptAnalyzer(BaseAnalyzer):
         violations = []
         # Find all string literals >= 6 chars (skip short ones like 'id', 'a')
         string_re = re.compile(r'''['"]([^'"\n]{6,})['"]''')
+        # Regex to detect className= or class= attribute context
+        classname_re = re.compile(r'''(?:className|class)\s*=\s*['"]''')
         all_strings: List[Tuple[str, int]] = []
         for i, line in enumerate(content.splitlines(), start=1):
             stripped = line.strip()
             if stripped.startswith('//') or stripped.startswith('*') or stripped.startswith('import '):
                 continue
             for m in string_re.finditer(line):
-                all_strings.append((m.group(1), i))
+                val = m.group(1)
+                # Skip strings inside className= or class= attributes
+                prefix = line[:m.start()]
+                if classname_re.search(prefix):
+                    continue
+                # Skip strings that look like CSS/Tailwind class names
+                if self._is_css_class_string(val):
+                    continue
+                all_strings.append((val, i))
 
         counts = Counter(s for s, _ in all_strings)
         reported: set = set()

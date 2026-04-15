@@ -432,6 +432,28 @@ class TestJavaScriptAnalyzer(unittest.TestCase):
         violations = self.analyzer.run_ast_check("test.tsx", code, rule, "duplicate_strings")
         self.assertEqual(len(violations), 0)
 
+    def test_duplicate_strings_skips_css_classnames(self) -> None:
+        code = (
+            '<div className="text-lg font-semibold mb-4">A</div>\n'
+            '<div className="text-lg font-semibold mb-4">B</div>\n'
+            '<div className="text-lg font-semibold mb-4">C</div>\n'
+        )
+        rule = _rule("JSTEST", "duplicate_strings", "warning")
+        rule["threshold"] = 3
+        violations = self.analyzer.run_ast_check("test.tsx", code, rule, "duplicate_strings")
+        self.assertEqual(len(violations), 0)
+
+    def test_duplicate_strings_skips_tailwind_outside_classname(self) -> None:
+        code = (
+            'const a = "text-gray-400 hover:text-white";\n'
+            'const b = "text-gray-400 hover:text-white";\n'
+            'const c = "text-gray-400 hover:text-white";\n'
+        )
+        rule = _rule("JSTEST", "duplicate_strings", "warning")
+        rule["threshold"] = 3
+        violations = self.analyzer.run_ast_check("test.tsx", code, rule, "duplicate_strings")
+        self.assertEqual(len(violations), 0)
+
     # -- unused imports JS (SonarQube) -------------------------------------
 
     def test_unused_import_detected(self) -> None:
